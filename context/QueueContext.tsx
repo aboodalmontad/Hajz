@@ -135,40 +135,34 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const loginClerk = useCallback((username: string, password: string, windowId: number): { clerk?: Clerk; error?: string } => {
-    let loggedInClerk: Clerk | undefined;
-    let error: string | undefined;
+    const clerkToLogin = clerks.find(c => c.username === username && c.password === password);
+    if (!clerkToLogin) {
+        return { error: "اسم المستخدم أو كلمة المرور غير صحيحة." };
+    }
+    
+    if (clerkToLogin.status !== ClerkStatus.OFFLINE || clerkToLogin.windowId !== null) {
+        return { error: "هذا الموظف مسجل دخوله بالفعل في شباك آخر." };
+    }
 
-    setClerks(prevClerks => {
-        const clerkToLogin = prevClerks.find(c => c.username === username && c.password === password);
-        if (!clerkToLogin) {
-            error = "اسم المستخدم أو كلمة المرور غير صحيحة.";
-            return prevClerks;
-        }
-        
-        if (clerkToLogin.status !== ClerkStatus.OFFLINE || clerkToLogin.windowId !== null) {
-            error = "هذا الموظف مسجل دخوله بالفعل في شباك آخر.";
-            return prevClerks;
-        }
+    const windowIsOccupied = clerks.some(c => c.windowId === windowId);
+    if (windowIsOccupied) {
+        return { error: "هذا الشباك مشغول حاليًا." };
+    }
 
-        const windowIsOccupied = prevClerks.some(c => c.windowId === windowId);
-        if (windowIsOccupied) {
-            error = "هذا الشباك مشغول حاليًا.";
-            return prevClerks;
-        }
+    const loggedInClerk: Clerk = {
+        ...clerkToLogin,
+        windowId: windowId,
+        status: ClerkStatus.AVAILABLE,
+    };
+    
+    setClerks(prevClerks => 
+        prevClerks.map(clerk => 
+            clerk.id === clerkToLogin.id ? loggedInClerk : clerk
+        )
+    );
 
-        loggedInClerk = {
-            ...clerkToLogin,
-            windowId: windowId,
-            status: ClerkStatus.AVAILABLE,
-        };
-        
-        return prevClerks.map(clerk => 
-            clerk.id === clerkToLogin.id ? loggedInClerk! : clerk
-        );
-    });
-
-    return { clerk: loggedInClerk, error };
-  }, []);
+    return { clerk: loggedInClerk };
+  }, [clerks]);
 
   const logoutClerk = useCallback((clerkId: number) => {
     setClerks(prev => prev.map(clerk => {
