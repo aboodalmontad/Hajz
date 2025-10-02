@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { useQueue } from '../context/QueueContext';
 import { Clerk, ClerkStatus } from '../types';
@@ -21,7 +22,8 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
 );
 
 const AdminDashboard: React.FC = () => {
-  const { clerks, customers, servedCount } = useQueue();
+  // FIX: Destructure `windows` from `useQueue` to look up window numbers.
+  const { clerks, customers, servedCount, windows } = useQueue();
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState('');
 
@@ -50,9 +52,12 @@ const AdminDashboard: React.FC = () => {
         - إجمالي العملاء الذين تم خدمتهم اليوم: ${servedCount}
         - عدد الموظفين: ${clerks.length}
         - تفاصيل الموظفين:
-        ${clerks.map(c =>
-            `  - ${c.name} (شباك ${c.windowNumber}): الحالة=${c.status}, خدم=${c.customersServed}, متوسط الوقت=${(c.customersServed > 0 ? c.totalServiceTime / c.customersServed : 0).toFixed(2)} ثانية`
-        ).join('\n')}
+        ${clerks.map(c => {
+            // FIX: The 'Clerk' type has `windowId`, not `windowNumber`.
+            // Find the corresponding window from the `windows` array to get its number.
+            const window = windows.find(w => w.id === c.windowId);
+            return `  - ${c.name} (شباك ${window ? window.number : 'N/A'}): الحالة=${c.status}, خدم=${c.customersServed}, متوسط الوقت=${(c.customersServed > 0 ? c.totalServiceTime / c.customersServed : 0).toFixed(2)} ثانية`
+        }).join('\n')}
         `;
         const result = await getGeminiSuggestions(summary);
         setSuggestions(result);

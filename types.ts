@@ -8,8 +8,7 @@ export enum View {
     KIOSK = 'الكشك',
     DISPLAY = 'الشاشة الرئيسية',
     CLERK = 'واجهة الموظف',
-    ADMIN = 'لوحة التحكم',
-    MANAGEMENT = 'الإدارة'
+    MANAGEMENT = 'الإدارة والتحكم'
 }
 
 export interface Customer {
@@ -18,10 +17,17 @@ export interface Customer {
   arrivalTime: number; // timestamp
 }
 
+export interface Window {
+  id: number;
+  number: number;
+}
+
 export interface Clerk {
   id: number;
   name: string;
-  windowNumber: number;
+  username: string;
+  password: string;
+  windowId: number | null;
   status: ClerkStatus;
   customersServed: number;
   totalServiceTime: number; // in seconds

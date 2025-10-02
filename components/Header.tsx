@@ -1,9 +1,10 @@
 import React from 'react';
-import { View } from '../types';
+import { View, Clerk } from '../types';
 
 interface HeaderProps {
   currentView: View;
   setCurrentView: (view: View) => void;
+  loggedInClerk: Clerk | null;
 }
 
 const NavButton: React.FC<{
@@ -24,7 +25,7 @@ const NavButton: React.FC<{
   </button>
 );
 
-const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
+const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, loggedInClerk }) => {
   return (
     <header className="bg-primary-800 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -35,12 +36,19 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView }) => {
             </svg>
             <span className="text-white text-xl font-bold ms-3">طابور ذكي</span>
           </div>
-          <nav className="flex gap-x-2">
+          <nav className="flex gap-x-2 items-center">
             <NavButton view={View.KIOSK} currentView={currentView} onClick={setCurrentView}>{View.KIOSK}</NavButton>
             <NavButton view={View.DISPLAY} currentView={currentView} onClick={setCurrentView}>{View.DISPLAY}</NavButton>
-            <NavButton view={View.CLERK} currentView={currentView} onClick={setCurrentView}>{View.CLERK}</NavButton>
+            
+            {loggedInClerk ? (
+              <div className="flex items-center gap-x-3">
+                <span className="text-gray-300 text-sm font-medium">أهلاً، {loggedInClerk.name}</span>
+              </div>
+            ) : (
+              <NavButton view={View.CLERK} currentView={currentView} onClick={setCurrentView}>{View.CLERK}</NavButton>
+            )}
+
             <NavButton view={View.MANAGEMENT} currentView={currentView} onClick={setCurrentView}>{View.MANAGEMENT}</NavButton>
-            <NavButton view={View.ADMIN} currentView={currentView} onClick={setCurrentView}>{View.ADMIN}</NavButton>
           </nav>
         </div>
       </div>
