@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useQueue } from '../context/QueueContext';
 import { Window, Clerk } from '../types';
@@ -21,12 +22,17 @@ const LoginModal: React.FC<{
         e.preventDefault();
         setError(null);
         setIsLoggingIn(true);
-        const loginError = await onLogin(username, password, window.id);
-        if (loginError) {
-            setError(loginError);
+        try {
+            const loginError = await onLogin(username, password, window.id);
+            if (loginError) {
+                setError(loginError);
+            }
+            // On success, the app state changes and this component unmounts, so no need to handle the success case here.
+        } catch (e: any) {
+            setError(e.error || 'فشل تسجيل الدخول.');
+        } finally {
             setIsLoggingIn(false);
         }
-        // On success, the app state changes and this component unmounts, so no need to handle the success case here.
     };
 
     return (
@@ -106,7 +112,7 @@ const WindowSelectionView: React.FC<WindowSelectionViewProps> = ({ onLogin }) =>
                                 {isOccupied 
                                   ? <>
                                       <span className="text-red-600">مشغول</span>
-                                      <span className="block text-xs text-gray-600">({servingClerk.name})</span>
+                                      <span className="block text-xs text-gray-600">({servingClerk?.name || 'موظف'})</span>
                                     </>
                                   : <span className="text-green-600">متاح</span>
                                 }

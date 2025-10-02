@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { QueueProvider } from './context/QueueContext';
+import { RoleProvider } from './context/RoleContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,8 +13,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <QueueProvider>
-      <App />
-    </QueueProvider>
+    <RoleProvider>
+      <QueueProvider>
+        <App />
+      </QueueProvider>
+    </RoleProvider>
   </React.StrictMode>
 );
