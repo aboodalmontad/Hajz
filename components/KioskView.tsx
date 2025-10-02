@@ -1,24 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQueue } from '../context/QueueContext';
 
 const KioskView: React.FC = () => {
   const { takeNumber, customers } = useQueue();
   const [showTicket, setShowTicket] = useState<boolean>(false);
+  const [myTicketNumber, setMyTicketNumber] = useState<string | null>(null);
+  const prevCustomerCount = useRef<number>(0);
 
   const handleTakeNumber = () => {
+    prevCustomerCount.current = customers.length;
     takeNumber();
     setShowTicket(true);
-    setTimeout(() => setShowTicket(false), 5000); // إخفاء التذكرة بعد 5 ثوانٍ
+    setMyTicketNumber(null); // إعادة تعيين ليعرض حالة التحميل '...'
+    setTimeout(() => {
+        setShowTicket(false);
+    }, 5000); // إخفاء التذكرة بعد 5 ثوانٍ
   };
   
-  const lastTicket = customers.length > 0 ? customers[customers.length - 1].ticketNumber : '';
+  useEffect(() => {
+    // هذا التأثير يراقب التغييرات في قائمة العملاء
+    // إذا كنا في وضع عرض التذكرة، ولم يتم تعيين رقم تذكرتنا بعد، وزاد عدد العملاء،
+    // فهذا يعني أن تذكرتنا قد وصلت.
+    if (showTicket && myTicketNumber === null && customers.length > prevCustomerCount.current) {
+        // نفترض أن العميل الجديد في الفهرس القديم هو "نحن"
+        const myCustomer = customers[prevCustomerCount.current];
+        if (myCustomer) {
+            setMyTicketNumber(myCustomer.ticketNumber);
+        }
+    }
+  }, [customers, showTicket, myTicketNumber]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg p-8">
-      {showTicket && lastTicket ? (
+      {showTicket ? (
         <div className="text-center text-white animate-fade-in-down">
           <h2 className="text-2xl font-light mb-2">رقم تذكرتك هو</h2>
-          <p className="text-8xl font-black tracking-wider">{lastTicket}</p>
+          <p className="text-8xl font-black tracking-wider min-h-[110px] flex items-center justify-center">
+            {myTicketNumber || '...'}
+          </p>
           <p className="mt-4 text-lg">يرجى الانتظار حتى يتم استدعاء رقمك.</p>
         </div>
       ) : (
