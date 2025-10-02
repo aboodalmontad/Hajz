@@ -240,8 +240,13 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         if (type === 'STATE_UPDATE') {
             dispatch({ type: 'SET_STATE', payload: payload });
         } else if (type === 'LOGIN_RESPONSE' && loginPromises.current.has(payload.clientId)) {
-            loginPromises.current.get(payload.clientId)?.resolve(payload);
-            loginPromises.current.delete(payload.clientId);
+            const promiseCallbacks = loginPromises.current.get(payload.clientId);
+            if (promiseCallbacks) {
+                // نمرر فقط الخصائص المتوقعة (clerk أو error) إلى دالة resolve
+                // لضمان تطابق شكل البيانات مع نوع الإرجاع للدالة loginClerk.
+                promiseCallbacks.resolve({ clerk: payload.clerk, error: payload.error });
+                loginPromises.current.delete(payload.clientId);
+            }
         }
       }
     };
@@ -314,7 +319,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             channelRef.current?.postMessage({ type: 'LOGIN_CLERK', payload: { username, password, windowId, clientId } });
             setTimeout(() => { // مهلة زمنية لمنع الوعود المعلقة
                 if(loginPromises.current.has(clientId)){
-                    reject({ error: "انتهت مهلة طلب تسجيل الدخول." });
+                    reject({ error: "انتهت مهلة طلب تسجيل الدخول. يرجى التأكد من أن واجهة 'الإدارة والتحكم' مفتوحة في علامة تبويب أخرى لتعمل كخادم." });
                     loginPromises.current.delete(clientId);
                 }
             }, 10000);
