@@ -1,5 +1,4 @@
-
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { Customer, Clerk, ClerkStatus, ServingInfo, Window } from '../types';
 
 interface QueueContextType {
@@ -22,27 +21,36 @@ interface QueueContextType {
 
 const QueueContext = createContext<QueueContextType | undefined>(undefined);
 
-const initialWindows: Window[] = [
-  { id: 1, number: 1 },
-  { id: 2, number: 2 },
-  { id: 3, number: 3 },
-  { id: 4, number: 4 },
-  { id: 5, number: 5 },
-];
-
-const initialClerks: Clerk[] = [
-  { id: 1, name: 'علي أحمد', username: 'ali', password: 'password123', windowId: null, status: ClerkStatus.OFFLINE, customersServed: 0, totalServiceTime: 0, currentCustomerId: null },
-  { id: 2, name: 'فاطمة خان', username: 'fatima', password: 'password123', windowId: null, status: ClerkStatus.OFFLINE, customersServed: 0, totalServiceTime: 0, currentCustomerId: null },
-  { id: 3, name: 'يوسف إبراهيم', username: 'youssef', password: 'password123', windowId: null, status: ClerkStatus.OFFLINE, customersServed: 0, totalServiceTime: 0, currentCustomerId: null },
-];
-
 export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [windows, setWindows] = useState<Window[]>(initialWindows);
-  const [clerks, setClerks] = useState<Clerk[]>(initialClerks);
-  const [serving, setServing] = useState<ServingInfo[]>([]);
-  const [nextTicket, setNextTicket] = useState(101);
-  const [servedCount, setServedCount] = useState(0);
+  const [customers, setCustomers] = useState<Customer[]>(() => JSON.parse(localStorage.getItem('queue_customers') || '[]'));
+  const [windows, setWindows] = useState<Window[]>(() => JSON.parse(localStorage.getItem('queue_windows') || '[]'));
+  const [clerks, setClerks] = useState<Clerk[]>(() => {
+    const savedClerks = JSON.parse(localStorage.getItem('queue_clerks') || '[]') as Clerk[];
+    // On initial load, reset all clerks to an offline state to ensure a clean session.
+    return savedClerks.map(clerk => ({
+      ...clerk,
+      status: ClerkStatus.OFFLINE,
+      windowId: null,
+      currentCustomerId: null,
+    }));
+  });
+  const [serving, setServing] = useState<ServingInfo[]>([]); // Always start with an empty serving list for a clean state.
+  const [nextTicket, setNextTicket] = useState<number>(() => JSON.parse(localStorage.getItem('queue_nextTicket') || '101'));
+  const [servedCount, setServedCount] = useState<number>(() => JSON.parse(localStorage.getItem('queue_servedCount') || '0'));
+
+  // Effect to save state changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('queue_customers', JSON.stringify(customers));
+      localStorage.setItem('queue_windows', JSON.stringify(windows));
+      localStorage.setItem('queue_clerks', JSON.stringify(clerks));
+      localStorage.setItem('queue_nextTicket', JSON.stringify(nextTicket));
+      localStorage.setItem('queue_servedCount', JSON.stringify(servedCount));
+      // The 'serving' state is transient and intentionally not persisted.
+    } catch (error) {
+      console.error("Failed to save state to localStorage:", error);
+    }
+  }, [customers, windows, clerks, nextTicket, servedCount]);
 
   const takeNumber = useCallback(() => {
     const newCustomer: Customer = {
@@ -55,34 +63,31 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [nextTicket]);
 
   const callNextCustomer = useCallback((clerkId: number) => {
-    const clerk = clerks.find(c => c.id === clerkId);
-    const nextCustomer = customers[0];
+    setClerks(prevClerks => {
+        const clerkIndex = prevClerks.findIndex(c => c.id === clerkId);
+        if (clerkIndex === -1 || prevClerks[clerkIndex].status !== ClerkStatus.AVAILABLE) return prevClerks;
 
-    // Pre-conditions check
-    if (!clerk || clerk.status !== ClerkStatus.AVAILABLE || !nextCustomer) {
-        return;
-    }
-    
-    const updatedClerk: Clerk = {
-        ...clerk,
-        currentCustomerId: nextCustomer.id,
-        status: ClerkStatus.BUSY,
-    };
+        const nextCustomer = customers[0];
+        if (!nextCustomer) return prevClerks;
 
-    // Update states
-    setClerks(prevClerks => 
-      prevClerks.map(c => 
-        c.id === clerkId ? updatedClerk : c
-      )
-    );
-    
-    setCustomers(prevCustomers => prevCustomers.slice(1));
+        const updatedClerk: Clerk = {
+            ...prevClerks[clerkIndex],
+            currentCustomerId: nextCustomer.id,
+            status: ClerkStatus.BUSY,
+        };
 
-    setServing(prevServing => {
-        const newServingInfo: ServingInfo = { clerk: updatedClerk, customer: nextCustomer };
-        return [...prevServing.filter(s => s.clerk.id !== clerkId), newServingInfo];
+        const newClerks = [...prevClerks];
+        newClerks[clerkIndex] = updatedClerk;
+        
+        setCustomers(prevCustomers => prevCustomers.slice(1));
+        setServing(prevServing => {
+            const newServingInfo: ServingInfo = { clerk: updatedClerk, customer: nextCustomer };
+            return [...prevServing.filter(s => s.clerk.id !== clerkId), newServingInfo];
+        });
+
+        return newClerks;
     });
-  }, [clerks, customers]);
+  }, [customers]);
   
   const finishService = useCallback((clerkId: number) => {
     const servingInfo = serving.find(s => s.clerk.id === clerkId);
@@ -130,34 +135,40 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const loginClerk = useCallback((username: string, password: string, windowId: number): { clerk?: Clerk; error?: string } => {
-    const clerkToLogin = clerks.find(c => c.username === username && c.password === password);
-    if (!clerkToLogin) {
-        return { error: "اسم المستخدم أو كلمة المرور غير صحيحة." };
-    }
-    
-    if (clerkToLogin.status !== ClerkStatus.OFFLINE || clerkToLogin.windowId !== null) {
-        return { error: "هذا الموظف مسجل دخوله بالفعل في شباك آخر." };
-    }
+    let loggedInClerk: Clerk | undefined;
+    let error: string | undefined;
 
-    const windowIsOccupied = clerks.some(c => c.windowId === windowId);
-    if (windowIsOccupied) {
-        return { error: "هذا الشباك مشغول حاليًا." };
-    }
+    setClerks(prevClerks => {
+        const clerkToLogin = prevClerks.find(c => c.username === username && c.password === password);
+        if (!clerkToLogin) {
+            error = "اسم المستخدم أو كلمة المرور غير صحيحة.";
+            return prevClerks;
+        }
+        
+        if (clerkToLogin.status !== ClerkStatus.OFFLINE || clerkToLogin.windowId !== null) {
+            error = "هذا الموظف مسجل دخوله بالفعل في شباك آخر.";
+            return prevClerks;
+        }
 
-    const loggedInClerk: Clerk = {
-      ...clerkToLogin,
-      windowId: windowId,
-      status: ClerkStatus.AVAILABLE,
-    };
-    
-    setClerks(prevClerks => 
-      prevClerks.map(clerk => 
-        clerk.id === clerkToLogin.id ? loggedInClerk : clerk
-      )
-    );
+        const windowIsOccupied = prevClerks.some(c => c.windowId === windowId);
+        if (windowIsOccupied) {
+            error = "هذا الشباك مشغول حاليًا.";
+            return prevClerks;
+        }
 
-    return { clerk: loggedInClerk };
-  }, [clerks]);
+        loggedInClerk = {
+            ...clerkToLogin,
+            windowId: windowId,
+            status: ClerkStatus.AVAILABLE,
+        };
+        
+        return prevClerks.map(clerk => 
+            clerk.id === clerkToLogin.id ? loggedInClerk! : clerk
+        );
+    });
+
+    return { clerk: loggedInClerk, error };
+  }, []);
 
   const logoutClerk = useCallback((clerkId: number) => {
     setClerks(prev => prev.map(clerk => {
@@ -175,18 +186,19 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }));
   }, []);
 
-
   const addWindow = useCallback((number: number) => {
-      if (windows.some(w => w.number === number)) {
-          console.warn(`Window number ${number} already exists.`);
-          return;
-      }
-      setWindows(prev => [...prev, { id: Date.now(), number }].sort((a, b) => a.number - b.number));
-  }, [windows]);
+      setWindows(prev => {
+          if (prev.some(w => w.number === number)) {
+              alert(`شباك رقم ${number} موجود بالفعل.`);
+              return prev;
+          }
+          return [...prev, { id: Date.now(), number }].sort((a, b) => a.number - b.number);
+      });
+  }, []);
 
   const removeWindow = useCallback((windowId: number) => {
       if (clerks.some(c => c.windowId === windowId)) {
-          console.warn(`Cannot remove window assigned to a clerk.`);
+          alert("لا يمكن إزالة شباك معين لموظف حاليًا.");
           return;
       }
       setWindows(prev => prev.filter(w => w.id !== windowId));

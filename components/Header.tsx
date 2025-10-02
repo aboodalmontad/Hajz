@@ -39,16 +39,15 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, loggedInCl
           <nav className="flex gap-x-2 items-center">
             <NavButton view={View.KIOSK} currentView={currentView} onClick={setCurrentView}>{View.KIOSK}</NavButton>
             <NavButton view={View.DISPLAY} currentView={currentView} onClick={setCurrentView}>{View.DISPLAY}</NavButton>
-            
-            {loggedInClerk ? (
-              <div className="flex items-center gap-x-3">
-                <span className="text-gray-300 text-sm font-medium">أهلاً، {loggedInClerk.name}</span>
-              </div>
-            ) : (
-              <NavButton view={View.CLERK} currentView={currentView} onClick={setCurrentView}>{View.CLERK}</NavButton>
-            )}
-
+            <NavButton view={View.CLERK} currentView={currentView} onClick={setCurrentView}>{View.CLERK}</NavButton>
             <NavButton view={View.MANAGEMENT} currentView={currentView} onClick={setCurrentView}>{View.MANAGEMENT}</NavButton>
+            
+            {loggedInClerk && (
+              <>
+                <div className="border-l border-primary-600 h-8 mx-2"></div>
+                <span className="text-gray-300 text-sm font-medium">أهلاً، {loggedInClerk.name}</span>
+              </>
+            )}
           </nav>
         </div>
       </div>
